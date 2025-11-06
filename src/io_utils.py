@@ -1,26 +1,28 @@
-# src/io_utils.py
-"""CSV load/save helpers for (word, score) pairs.
-The file format is two columns without header: word,score
-"""
-
 import csv
 
 def load_csv(path):
-    words = []
+    """
+    Load a CSV file and return a list of tuples (word, score).
+    """
+    data = []
     with open(path, newline='', encoding='utf-8') as f:
-        for row in csv.reader(f):
-            if not row:
-                continue
-            w = row[0].strip().lower()
-            try:
-                s = float(row[1]) if len(row) > 1 else 0.0
-            except ValueError:
-                s = 0.0
-            words.append((w, s))
-    return words
+        reader = csv.reader(f)
+        for row in reader:
+            if len(row) >= 2:
+                word = row[0].strip()
+                try:
+                    score = float(row[1])
+                except ValueError:
+                    continue
+                data.append((word, score))
+    return data
 
-def save_csv(path, items):
-    with open(path, 'w', newline='', encoding='utf-8') as f:
+
+def save_csv(path, data):
+    """
+    Save a list of tuples (word, score) into a CSV file.
+    """
+    with open(path, "w", newline='', encoding="utf-8") as f:
         writer = csv.writer(f)
-        for w, s in items:
-            writer.writerow([w, s])
+        for word, score in data:
+            writer.writerow([word, score])

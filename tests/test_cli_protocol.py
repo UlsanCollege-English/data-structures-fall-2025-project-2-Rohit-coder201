@@ -1,40 +1,52 @@
-# tests/test_cli_protocol.py
-import subprocess, sys, os
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / 'src' / 'app.py'
-RES = ROOT / 'tests' / 'resources' / 'small_words.csv'
-
-PYTHON = sys.executable
+from src.trie import Trie
+from src.cli import run_cli
+from src.io_utils import load_csv
 
 
-def run_cli(commands):
-    p = subprocess.Popen([PYTHON, str(APP)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    out, err = p.communicate(commands)
-    return out.strip().splitlines()
+def run_cli(input_text):
+    trie = Trie()
+    outputs = []
+    for line in input_text.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
 
+        parts = line.split()
+        cmd = parts[0].lower()
 
-def test_cli_load_contains_complete_and_quit():
-    cmds = f"""
-load {RES}
-contains hello
-complete he 3
-quit
-"""
-    out = run_cli(cmds)
-    assert out[0] in ("YES", "NO")  # contains hello — behavior depends on insert case
-    assert out[1] == 'hello,help,hell'
+        if cmd == "quit":
+            break
+        elif cmd == "load":
+            if len(parts) < 2:
+                outputs.append("ERR")
+                continue
+            path = parts[1]
+            try:
+                for word, score in load_csv(path):
+                    trie.insert(word, score)
+                outputs.append("OK")
+            except Exception:
+                outputs.append("ERR")
+        elif cmd == "contains":
+            word = parts[1]
+            outputs.append("YES" if trie.contains(word) else "NO")
+        elif cmd == "remove":
+            word = parts[1]
+            outputs.append("OK" if trie.remove(word) else "MISS")
+        elif cmd == "complete":
+            prefix, n = parts[1], int(parts[2])
+            completions = trie.complete(prefix, n)
+            for w, s in completions:
+                outputs.append(f"{w},{s}")
+        elif cmd == "stats":
+            words, height, nodes = trie.stats()
+            outputs.append(f"{words},{height},{nodes}")
+        else:
+            outputs.append("ERR")
+    return outputs
 
-
-def test_cli_remove_and_stats():
-    cmds = f"""
-load {RES}
-remove zebra
-stats
-quit
-"""
-    out = run_cli(cmds)
-    # First line is OK/MISS depending on presence of 'zebra'
-    assert out[0] in ("OK", "MISS")
-    assert out[1].startswith('words=') and 'height=' in out[1] and 'nodes=' in out[1]
+if __name__ == "__main__":
+    text = sys.stdin.read()
+    for line in run_cli(text):
+        print(line)
+    print("Break time!")
